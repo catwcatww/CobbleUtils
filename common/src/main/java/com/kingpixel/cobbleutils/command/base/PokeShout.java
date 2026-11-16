@@ -23,6 +23,10 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+import com.cobblemon.mod.common.pokemon.Nature;
+import java.util.ArrayList;
+import java.util.stream.Collectors;
+
 /**
  * @author Carlos Varas Alonso - 26/07/2024 14:14
  */
@@ -84,8 +88,8 @@ public class PokeShout implements Command<CommandSource> {
     String playerName = player.getGameProfile().getName();
     String messageContent = PokemonUtils.replace(baseMessage, pokemon).replace("%player%", playerName);
 
-    String hoverInfo = String.join("<br>", PokemonUtils.replaceLore(pokemon))
-      .replace("'", "\\'");
+      String hoverInfo = String.join("<br>", getLore(pokemon))
+              .replace("'", "\\'");
     messageContent = "<hover:show_text:'" + hoverInfo + "'>" + messageContent + "</hover>";
 
     return messageContent;
@@ -99,7 +103,62 @@ public class PokeShout implements Command<CommandSource> {
     return AdventureTranslator.toNativeComponent(messageContent)
       .setStyle(Style.EMPTY
         .withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT,
-          AdventureTranslator.toNative(String.join("\n", PokemonUtils.replaceLore(pokemon))))));
+                AdventureTranslator.toNative(String.join("\n", getLore(pokemon))))));
   }
+
+    private static List<String> getLore(Pokemon pokemon) {
+        List<String> lore = new ArrayList<>(PokemonUtils.replaceLore(pokemon));
+        lore.addAll(getExtraLore(pokemon));
+        return lore;
+    }
+
+    private static List<String> getExtraLore(Pokemon pokemon) {
+        List<String> extra = new ArrayList<>();
+        if (PokemonUtils.isEgg(pokemon)) return extra;
+
+        if (isAlpha(pokemon)) {
+            extra.add("&c&l★ Alpha");
+        }
+
+        extra.add("&7Ball: &f" + PokemonUtils.getPokeBallTranslate(pokemon.getCaughtBall()));
+
+        String aspects = pokemon.getAspects().stream()
+                .filter(a -> !isBoringAspect(a))
+                .collect(Collectors.joining(", "));
+        if (!aspects.isEmpty()) {
+            extra.add("&7Aspects: &f" + aspects);
+        }
+
+        String marks = pokemon.getMarks().stream()
+                .map(m -> m.getIdentifier().getPath())
+                .collect(Collectors.joining(", "));
+        if (!marks.isEmpty()) {
+            extra.add("&7Marks: &f" + marks);
+        }
+
+        Nature minted = pokemon.getMintedNature();
+        if (minted != null && !minted.equals(pokemon.getNature())) {
+            extra.add("&7Minted Nature: &f" + PokemonUtils.getNatureTranslate(minted));
+        }
+
+        String hyper = pokemon.getIvs().getHyperTrainedIVs().keySet().stream()
+                .map(PokemonUtils::getStatTranslate)
+                .collect(Collectors.joining(", "));
+        if (!hyper.isEmpty()) {
+            extra.add("&7Hyper Trained: &f" + hyper);
+        }
+
+        return extra;
+    }
+
+    private static boolean isAlpha(Pokemon pokemon) {
+        return pokemon.getAspects().contains("alpha") || pokemon.getPersistentData().getBoolean("alpha");
+    }
+
+    private static boolean isBoringAspect(String aspect) {
+        String a = aspect.toLowerCase();
+        return a.equals("male") || a.equals("female") || a.equals("genderless")
+                || a.equals("milkable") || a.equals("family") || a.startsWith("bucket");
+    }
 
 }
